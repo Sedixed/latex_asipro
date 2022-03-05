@@ -1,0 +1,686 @@
+%% ALgo.sty
+%% Copyright 2003 A. Lefebvre 
+%% arnaud.lefebvre@univ-rouen.fr
+ %
+ % This program may be distributed and/or modified under the
+ % conditions of the LaTeX Project Public License, either version 1.2
+ % of this license or (at your option) any later version.
+ % The latest version of this license is in
+ %   http://www.latex-project.org/lppl.txt
+ % and version 1.2 or later is part of all distributions of LaTeX 
+ % version 1999/12/01 or later.
+ %
+ % This program consists of the files ALgo.sty and ALgo.cfg
+
+\NeedsTeXFormat{LaTeX2e}[]
+\RequirePackage{color}
+\begingroup
+\catcode`|=0 \catcode`[= 1 \catcode`]=2
+ \catcode`\{=12 \catcode`\}=12 \catcode`\\=12
+ |gdef|@ignore#1\end{ignore}[|end[ignore]|endgroup|ignorespaces]
+ |endgroup
+
+\typeout{^^J-------------------------------^^J
+\space\space\space_______\space\space\space\space\space\space\space_____^^J
+\space\space/\space\space___\space\space\ \space\space\space\space/\space\space\space\space\space\ \space^^J
+\space|\space\space/\space\space\space\ \space|\space\space\space|\space\space\space\space\space\space\space|\space^^J
+\space|\space\space\___/\space\space|\space_\space\space\_____/|/^^J
+\space|\space\space\space___\space\space\space||\space|\space\space\space\space\space\space\space/|\space\space___^^J
+\space|\space\space/\space\space\space\ \space||\space|\space\space\space\space\space\space/\space|\space/\space\space\space\ \space^^J
+\space|\space|\space\space\space\space\space|\space||\space|\space\space\space\space\space/\space\space||\space\space\space\space\space|\space^^J
+\space|_|\space\space\space\space\space|_||\space|\space\space\space\space/\space\space\space|\space\___/.sty\space^^J
+\space\space\space\space\space\space\space\space\space\space\space\space|\space|\space\space\space\space\__/\space^^J
+\space\space\space\space\space\space\space\space\space\space\space\space|\space\space\____\space^^J
+\space\space\space\space\space\space\space\space\space\space\space\space|_______|\space^^J
+^^JRelease 1.0 -- November 14 2003^^J%
+         Author: Arnaud Lefebvre (Arnaud.Lefebvre@univ-rouen.fr)^^J-------------------------------^^J}
+
+\def\do@ignore#1{\catcode`#1=12\relax}
+
+\def\alg@error#1{\PackageError{ALgo}{#1}{}}
+
+\newcounter{cdata}
+
+\newif\ifin@ALgo
+\global\in@ALgofalse\relax
+\newif\if@inALgo
+\global\@inALgofalse\relax
+\newif\if@begin
+\newif\ifin@com
+\newif\ifin@l
+\newif\ifin@else
+\newif\ifin@use
+\newif\ifnum@com
+\newif\if@@numcom
+\newif\if@ends
+\newif\if@@ends
+\newif\if@rules
+\newif\if@@rules
+\newif\if@eqtab
+\newif\if@@eqtab
+\newif\if@nononum
+\newif\if@@nononum
+\newif\if@textwidth
+\newif\ifin@in
+\newif\ifin@out
+\newif\ifin@aux
+\newif\if@smallbar
+\newif\ifstyle@bold
+\newif\ifstyle@nbold
+\newif\ifstyle@it
+\newif\ifstyle@nit
+\newif\ifstyle@sc
+\newif\ifin@beamer
+
+\newwrite\fichier
+
+\def\alg@newlang#1{%
+\xdef\alg@lang{#1,\alg@lang}\relax}
+
+\def\alg@newstyle#1{%
+\xdef\alg@style{#1,\alg@style}\relax}
+
+\def\@traiter#1{%
+\edef\@tempb{#1}%
+\@for\@tempa:=\alg@style\do{\ifx\@tempa\@tempb\edef\@Style{\@tempb}\fi}%
+\@for\@tempa:=\alg@lang\do{\ifx\@tempa\@tempb\edef\@Lang{\@tempb}\fi}%
+\relax%
+}
+
+\def\@Traiter#1{%
+\edef\@tempb{#1}%
+\@for\@tempa:=\alg@style\do{\ifx\@tempa\@tempb\edef\@@Style{\@tempb}\fi}
+\@for\@tempa:=\alg@lang\do{\ifx\@tempa\@tempb\edef\@@Lang{\@tempb}\fi}
+}
+
+\def\LANG#1{\@LANG@#1,\@@}
+\def\@LANG@#1,#2\@@{\gdef\@lang{#1}\relax\ifx\@lang\@Lang\@LANG@@#2\@@\fi\alg@newlang{\@lang}}%
+\def\@LANG@@#1,#2\@@{\@extract@#1\@@\ifx#2\empty\else\@LANG@@#2\@@\fi}
+\def\@extract@#1=#2\@@{%
+\edef\@tempb{\zap@space#1 \empty}%
+\def\@tempa{BEGIN}\ifx\@tempa\@tempb\gdef\begin@ALgo{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{END}\ifx\@tempa\@tempb\gdef\end@ALgo{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{IF}\ifx\@tempa\@tempb\gdef\alg@if{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{FI}\ifx\@tempa\@tempb\gdef\alg@fi{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{THEN}\ifx\@tempa\@tempb\gdef\alg@then{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{ELSE}\ifx\@tempa\@tempb\gdef\alg@else{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{ELIF}\ifx\@tempa\@tempb\gdef\alg@elif{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{FOR}\ifx\@tempa\@tempb\gdef\alg@for{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{FOREACH}\ifx\@tempa\@tempb\gdef\alg@foreach{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{TO}\ifx\@tempa\@tempb\gdef\alg@to{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{DOWNTO}\ifx\@tempa\@tempb\gdef\alg@dto{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{STEP}\ifx\@tempa\@tempb\gdef\alg@step{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{DO}\ifx\@tempa\@tempb\gdef\alg@do{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{DOWHILE}\ifx\@tempa\@tempb\gdef\alg@dowhile{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{REPEAT}\ifx\@tempa\@tempb\gdef\alg@repeat{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{UNTIL}\ifx\@tempa\@tempb\gdef\alg@until{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{ODFOR}\ifx\@tempa\@tempb\gdef\alg@odf{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{WHILE}\ifx\@tempa\@tempb\gdef\alg@while{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{ODWHILE}\ifx\@tempa\@tempb\gdef\alg@odw{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{RETURN}\ifx\@tempa\@tempb\gdef\alg@return{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{INPUT}\ifx\@tempa\@tempb\gdef\alg@in{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{OUTPUT}\ifx\@tempa\@tempb\gdef\alg@out{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{AUX}\ifx\@tempa\@tempb\gdef\alg@aux{\@ecrire{\zap@space#2 \empty}}\fi%
+\def\@tempa{TRUE}\ifx\@tempa\@tempb\gdef\alg@True{\zap@space#2 \empty}\fi%
+\def\@tempa{FALSE}\ifx\@tempa\@tempb\gdef\alg@False{\zap@space#2 \empty}\fi%
+\def\@tempa{BREAK}\ifx\@tempa\@tempb\gdef\alg@Break{\@ecrire{\zap@space#2 \empty}}\fi%
+}
+
+\def\STYLE#1{\@STYLE@#1,\@@}
+\def\@STYLE@#1,#2\@@{\gdef\@style{#1}\relax\ifx\@style\@Style\@STYLE@@#2\@@\fi\alg@newstyle{\@style}}%
+\def\@STYLE@@#1,#2\@@{\@ext@#1\@@\ifx#2\empty\else\@STYLE@@#2\@@\fi}%
+\def\@ext@#1\@@{%
+\edef\@tempb{\zap@space#1 \empty}%
+\def\@tempa{BOLD}\ifx\@tempa\@tempb\global\style@boldtrue\fi%
+\def\@tempa{NUMBOLD}\ifx\@tempa\@tempb\global\style@nboldtrue\fi%
+\def\@tempa{ITALIC}\ifx\@tempa\@tempb\global\style@ittrue\fi%
+\def\@tempa{NUMITALIC}\ifx\@tempa\@tempb\global\style@nittrue\fi%
+\def\@tempa{SMALLCAPS}\ifx\@tempa\@tempb\global\style@sctrue\fi%
+}
+
+\DeclareOption{noends}{\global\@@endsfalse\relax}
+\DeclareOption{norules}{\global\@@rulesfalse\relax}
+\DeclareOption{eqtab}{\global\@@eqtabtrue\relax}
+\DeclareOption{nononum}{\global\@@nononumfalse\relax}
+\DeclareOption{defaultstyle}{\gdef\@@Style{default}\relax}
+\DeclareOption{english}{\gdef\@@Lang{english}\gdef\@Lang{english}\relax}
+\DeclareOption{ends}{\global\@@endstrue\relax}
+\DeclareOption{rules}{\global\@@rulestrue\relax}
+\DeclareOption{noeqtab}{\global\@@eqtabfalse\relax}
+\DeclareOption{nonumcom}{\global\@@numcomfalse\relax}
+\DeclareOption{numcom}{\global\@@numcomtrue\relax}
+\DeclareOption{nonum}{\global\@@nononumtrue\relax}
+\DeclareOption{ls}{\xdef\alg@lang{}\xdef\alg@style{}\input{ALgo.cfg}}
+\DeclareOption*{\@Traiter\CurrentOption}
+\ExecuteOptions{english,defaultstyle,ls,noends,norules,eqtab,nononum,nonumcom}
+\ProcessOptions\relax
+
+\definecolor{gray}{rgb}{.3,.3,.3}
+\definecolor{lightgray}{rgb}{.8,.8,.8}
+
+\def\@ecrire#1{\ifstyle@sc\def\@kw{\textsc{#1}}\else\def\@kw{#1}\fi\ifstyle@it\def\@kww{\textit{\@kw}}\else\def\@kww{\@kw}\fi\ifstyle@bold\def\@kwww{\textbf{\@kww}}\else\def\@kwww{\@kww}\fi\@kwww}
+
+\def\@ecrirenum#1{\ifstyle@nbold\def\@kw{\textbf{#1}}\else\def\@kw{#1}\fi\ifstyle@nit\def\@kww{\textit{\@kw}}\else\def\@kww{\@kw}\fi\@kww}
+
+\def\alg@heap{}
+\def\alg@list{}
+
+\def\alg@set{\leftarrow}
+\def\@com{\ifin@l\else\ifin@use\else\ifmmode\triangleright\@sp\else\begin{math}\triangleright\end{math}\@sp\fi\fi\fi}
+\def\alg@Z{&}
+
+\def\@saut#1#2#3{%
+\sbox\@tempboxa{#1}\hspace{.5\wd\@tempboxa}#2\sbox\@tempboxa{#2}\hspace{-\wd\@tempboxa}\sbox\@tempboxa{#1}\hspace{-.5\wd\@tempboxa}\sbox\@tempboxa{#3}\hspace{\wd\@tempboxa}}
+
+\def\@retour#1{%
+\sbox\@tempboxa{#1}\hspace{-\wd\@tempboxa}}
+
+\def\@deftabs{%
+\def\@sep{\vline}%
+\if@eqtab%
+\if@rules%
+\gdef\tab@if{\@saut{\alg@if}{\@sep}{\alg@if}\@sp}%
+\else%
+\gdef\tab@if{\@saut{\alg@if}{}{\alg@if}\@sp}%
+\fi%
+\gdef\tab@else{\tab@if}%
+\gdef\tab@elif{\tab@if}%
+\gdef\tab@for{\tab@if}%
+\gdef\tab@dowhile{\tab@if}%
+\gdef\tab@repeat{\tab@if}%
+\gdef\tab@while{\tab@if}%
+\else%
+\if@rules%
+\gdef\tab@if{\@saut{\alg@if}{\@sep}{\alg@if}\@sp}%
+\gdef\tab@else{\@saut{\alg@if}{\@sep}{\alg@if}\@sp}%
+\gdef\tab@elif{\@saut{\alg@if}{\@sep}{\alg@if}\@sp}%
+\gdef\tab@for{\@saut{\alg@for}{\@sep}{\alg@for}\@sp}%
+\gdef\tab@dowhile{\@saut{\alg@dowhile}{\@sep}{\alg@dowhile}\@sp}%
+\gdef\tab@repeat{\@saut{\alg@repeat}{\@sep}{\alg@repeat}\@sp}%
+\gdef\tab@while{\@saut{\alg@while}{\@sep}{\alg@while}\@sp}%
+\else%
+\gdef\tab@if{\@saut{\alg@if}{}{\alg@if}\@sp}%
+\gdef\tab@else{\@saut{\alg@else}{}{\alg@else}\@sp}%
+\gdef\tab@elif{\@saut{\alg@else}{}{\alg@else}\@sp}%
+\gdef\tab@for{\@saut{\alg@for}{}{\alg@for}\@sp}%
+\gdef\tab@dowhile{\@saut{\alg@dowhile}{}{\alg@dowhile}\@sp}%
+\gdef\tab@repeat{\@saut{\alg@repeat}{}{\alg@repeat}\@sp}%
+\gdef\tab@while{\@saut{\alg@while}{}{\alg@while}\@sp}%
+\fi%
+\fi%
+\gdef\tab@in{\phantom{\alg@in}}%
+\gdef\tab@out{\phantom{\alg@out}}%
+\gdef\tab@aux{\phantom{\alg@aux}}%
+}
+
+\def\@tabul{}
+
+\def\@sp{~}
+\def\@top{}
+\newcount\@ln
+\newcounter{ALgo}
+\newcount\@hs
+\newcount\@ls
+
+\newlength\@tabcolsep
+
+
+\newcommand\ALgo{%
+A\sbox{\@tempboxa}{L}\hspace{-.3\wd\@tempboxa}\raisebox{-.5\ht\@tempboxa}{L}\sbox{\@tempboxa}{g}\hspace{-.3\wd\@tempboxa}\raisebox{.5\ht\@tempboxa}{g}o}
+
+\newenvironment{algo}[3][]{\in@beamerfalse\beginALgo{#2}{#3}{#1}}{\endALgo}
+\newenvironment{algoblock}[3][]{\global\in@beamertrue\relax\beginALgo{#2}{#3}{#1}}{\endALgo}
+\def\beginALgo#1#2#3{%
+\relax%
+%\begin{minipage}{.95\textwidth}%
+\global\in@ALgofalse\relax%
+\global\@inALgotrue\relax
+\global\@beginfalse\relax%
+\global\in@comfalse\relax%
+\global\@textwidthfalse\relax%
+\if@@ends\global\@endstrue\relax\else\global\@endsfalse\relax\fi%
+\if@@nononum\global\@nononumtrue\relax\else\global\@nononumfalse\relax\fi%
+\if@@rules\global\@rulestrue\relax\else\global\@rulesfalse\relax\fi%
+\if@@eqtab\global\@eqtabtrue\relax\else\global\@eqtabfalse\relax\fi%
+\if@@numcom\global\num@comtrue\relax\else\global\num@comfalse\relax\fi%
+\xdef\@Lang{\@@Lang}%
+\xdef\@Style{\@@Style}%
+\edef\@temp{\zap@space#3 \@empty}%
+\ifx\@temp{}\else\@for\@tmp:=\@temp\do{%
+\def\@temp{noeqtab}\ifx\@tmp\@temp\global\@eqtabfalse\relax\else%
+\def\@temp{ends}\ifx\@tmp\@temp\global\@endstrue\relax\else%
+\def\@temp{rules}\ifx\@tmp\@temp\global\@rulestrue\relax\else%
+\def\@temp{nonum}\ifx\@tmp\@temp\global\@nononumtrue\relax\else%
+\def\@temp{numcom}\ifx\@tmp\@temp\global\num@comtrue\relax\else%
+\@traiter\@tmp%
+\fi\fi\fi\fi\fi%
+}\fi%
+\relax%
+\global\style@boldfalse\relax%
+\global\style@nboldfalse\relax%
+\global\style@itfalse\relax%
+\global\style@nitfalse\relax%
+\global\style@scfalse\relax%
+\edef\alg@elif{\empty}
+\input{ALgo.cfg}%
+\relax%
+\@deftabs%
+\@ln = 1%
+\@hs = 0%
+\@ls = 0%
+\global\in@lfalse%
+\global\in@elsefalse%
+\global\in@usefalse%
+\global\in@infalse%
+\global\in@outfalse%
+\global\in@auxfalse%
+\global\@smallbarfalse%
+\gdef\alg@Tampon{}%
+\setcounter{ALgo}{0}%
+\refstepcounter{ALgo}%
+\setlength{\@tabcolsep}{\tabcolsep}%
+\sbox\@tempboxa{\@sp}%
+\setlength{\tabcolsep}{\wd\@tempboxa}%
+\ifin@beamer\ifx#2\@empty\begin{block}{\textsc{#1}}\else\begin{block}{\textsc{#1(}\begin{math}#2\end{math}\textsc{)}}\fi\else\noindent\begin{tabular}{l}%
+\ifx#1\empty\else\noindent{\textsc{#1(}\ifmmode#2\else\begin{math}#2\end{math}\fi\textsc{)}}\fi\\\fi%
+\if@nononum\setlength{\tabcolsep}{0pt}\gdef\@nonum{\alg@Z}\gdef\@Com{\@nonum}\gdef\@num{\@nonum}\else\gdef\@Com{\small\begin{math}\triangleright\end{math}\alg@Z}\gdef\@num{\small\@ecrirenum{\number\@ln}\alg@Z}\gdef\@nonum{\alg@Z}\fi%
+\begin{tabular}{rl}%
+}
+\def\endALgo{%
+\ifnum\@hs=0\else\alg@error{Missing FI or OD}\fi%
+\global\in@ALgofalse\relax%
+\global\@inALgofalse\relax%
+\END%
+\end{tabular}%\ifin@beamer\else\\\fi%
+\ifin@beamer\end{block}\else\end{tabular}\fi%
+%\ifin@beamer\end{block}\else\end{tabular}\\\fi%
+\setlength{\tabcolsep}{\@tabcolsep}%
+\global\in@usetrue\relax%
+%\end{minipage}%
+}
+
+\def\@incl{\global\advance\@ln 1\relax\refstepcounter{ALgo}}
+\def\@decl{\global\advance\@ln -1\relax\addtocounter{ALgo}{-2}\refstepcounter{ALgo}}
+\def\@fl{\\}
+
+\newcount\@tabn
+
+\def\@alltab{%
+\BEGIN%
+\tab@begin%
+\global\in@ALgotrue%
+\ifin@else\global\@smallbarfalse\global\in@elsefalse\relax\fi%
+\xdef\alg@list{}\relax%
+\@for\@temp:=\alg@heap\do{%
+\def\@tempa{IF}\relax\ifx\@temp\@tempa\alg@enfile{IF}\fi%
+\def\@tempa{ELSE}\relax\ifx\@temp\@tempa\alg@enfile{ELSE}\fi%
+\def\@tempa{WHILE}\relax\ifx\@temp\@tempa\alg@enfile{WHILE}\fi%
+\def\@tempa{FOR}\relax\ifx\@temp\@tempa\alg@enfile{FOR}\fi%
+\def\@tempa{FOREACH}\relax\ifx\@temp\@tempa\alg@enfile{FOR}\fi%
+\def\@tempa{DO}\relax\ifx\@temp\@tempa\alg@enfile{DO}\fi%
+\def\@tempa{REPEAT}\relax\ifx\@temp\@tempa\alg@enfile{REPEAT}\fi%
+}%
+\@tabn 0%
+\@for\@temp:=\alg@list\do{%
+\global\advance\@tabn 1%
+\def\@tempa{IF}\relax\ifx\@temp\@tempa\textcolor{gray}{\tab@if}\fi%
+\def\@tempa{ELSE}\relax\ifx\@temp\@tempa\ifin@l\else\textcolor{gray}{\tab@else}\fi\fi%
+\def\@tempa{WHILE}\relax\ifx\@temp\@tempa\textcolor{gray}{\tab@while}\fi%
+\def\@tempa{DO}\relax\ifx\@temp\@tempa\textcolor{gray}{\tab@dowhile}\fi%
+\def\@tempa{FOR}\relax\ifx\@temp\@tempa\textcolor{gray}{\tab@for}\fi%
+\def\@tempa{REPEAT}\relax\ifx\@temp\@tempa\textcolor{gray}{\tab@repeat}\fi%
+}%
+\alg@@smallbar%
+}
+
+\def\alg@@smallbar{%
+\if@smallbar%
+\@for\@tempb:=\alg@Tampon\do{%
+\def\@tempa{WHILE}\ifx\@tempb\@tempa\alg@smallbar{\tab@while}\@saut{}{}{\tab@while}\fi%
+\def\@tempa{FOR}\ifx\@tempb\@tempa\alg@smallbar{\tab@for}\@saut{}{}{\tab@for}\fi%
+\def\@tempa{IF}\ifx\@tempb\@tempa\alg@smallbar{\tab@if}\@saut{}{}{\tab@if}\fi%
+\def\@tempa{ELSE}\ifx\@tempb\@tempa\alg@smallbar{\tab@else}\@saut{}{}{\tab@else}\fi%
+}%
+\@for\@tempb:=\alg@Tampon\do{%
+\def\@tempa{WHILE}\ifx\@tempb\@tempa\@retour{\tab@while}\fi%
+\def\@tempa{FOR}\ifx\@tempb\@tempa\@retour{\tab@for}\fi%
+\def\@tempa{IF}\ifx\@tempb\@tempa\@retour{\tab@if}\fi%
+\def\@tempa{ELSE}\ifx\@tempb\@tempa\@retour{\tab@else}\fi%
+}%
+\gdef\alg@Tampon{}%
+\global\@smallbarfalse%
+\fi
+}
+
+\def\alg@enfile#1{%
+\xdef\alg@list{#1,\alg@list}\relax}
+
+\def\alg@tampon#1{%
+\xdef\alg@Tampon{#1,\alg@Tampon}\relax}
+
+\def\alg@push#1{%
+\global\advance\@hs by 1\relax%
+\xdef\@top{#1}\relax%
+\xdef\alg@heap{#1,\alg@heap}\relax}
+
+\def\alg@pop#1{%
+\ifnum\@hs=0\ifx#1\empty\else\alg@error{Unexpected #1}\fi\else\expandafter\alg@pop@\alg@heap\@@#1\@@\fi}
+
+\def\alg@pop@#1,#2\@@#3\@@{%
+ \global\advance\@hs by -1\relax%
+ \xdef\alg@heap{#2}%
+ \@tempswafalse\xdef\@top{#1}\relax%
+ \def\@tt{#3}\relax%
+ \if\@tt\empty\else%
+ \@for\@tempc:=#3\do{\ifx\@tempc\@top\@tempswatrue\fi}%
+ \if@tempswa\else\alg@error{Unexpected top}\fi\fi}
+
+\newcommand\IF[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{IF}\alg@if\@sp\begin{math}#2\end{math}\@sp\alg@then\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\newcommand\ELSE[1][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\alg@pop{ELSE,IF}\@alltab\global\in@ltrue\fi%
+\alg@push{ELSE}\alg@else\@sp\global\in@elsetrue\relax
+}
+
+\newcommand\@IF[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{IF}\alg@if\@sp\begin{math}#2\end{math}\@sp\alg@then\@fl\@incl\global\in@lfalse\global\in@usefalse}
+
+\newcommand\@ELSE[1][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\alg@pop{IF}\@alltab\global\in@ltrue\fi%
+\alg@else\@sp}
+
+\newcommand\ELSEIF[2][]{\@ELSE[]\@IF[#1]{#2}}
+
+\newcommand\@@IF[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{IF}\begin{math}#2\end{math}\@sp\alg@then\@fl\@incl\global\in@lfalse\global\in@usefalse}
+
+\def\@ELSEIF{%
+\ifin@l\else\@num\alg@pop{IF}\@alltab\global\in@ltrue\fi%
+\alg@elif\@sp}
+
+\newcommand\ELIF[2][]{
+\ifx\alg@elif\empty\@ELSE[]\@IF[#1]{#2}\else\@ELSEIF[]\@@IF[#1]{#2}\fi}
+
+\newcommand\WHILE[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{WHILE}\alg@while\@sp\begin{math}#2\end{math}\@sp\alg@do\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\def\DOWHILE{\WHILE}
+
+\newcommand\DO[1][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{DO}\alg@do\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\newcommand\WHILEOD[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\alg@pop{DO}%
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@while\@sp\begin{math}#2\end{math}\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\newcommand\REPEAT[1][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{REPEAT}\alg@repeat\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\newcommand\UNTIL[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\alg@pop{REPEAT}%
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@until\@sp\begin{math}#2\end{math}\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\newcommand\DOFOR[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{FOR}\alg@for\@sp\COM{\begin{math}#2\end{math}}\@sp\alg@do\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\newcommand\DOFOREACH[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{FOR}\alg@foreach\@sp\COM{\begin{math}#2\end{math}}\@sp\alg@do\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\newcommand\@DOFORX[4][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{FOR}\alg@for\@sp\begin{math}#2\alg@set#3\end{math}\@sp\alg@too\@sp\begin{math}#4\end{math}\@sp\alg@do\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\def\DOFORI{\gdef\alg@too{\alg@to}\@DOFORX}
+\def\DOFORD{\gdef\alg@too{\alg@dto}\@DOFORX}
+
+\newcommand\@DOFORIDS[5][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@push{FOR}\alg@for\@sp\begin{math}#2\alg@set#3\end{math}\@sp\alg@too\@sp\begin{math}#4\end{math}\@sp\alg@step\@sp\begin{math}#5\end{math}\@sp\alg@do\@fl\@incl\global\in@lfalse\global\in@usefalse
+}
+
+\def\DOFORS{\gdef\alg@too{\alg@to}\@DOFORIDS}
+\def\DOFORIS{\gdef\alg@too{\alg@to}\@DOFORIDS}
+\def\DOFORDS{\gdef\alg@too{\alg@dto}\@DOFORIDS}
+
+\def\FI{%
+\alg@pop{ELSE,IF}%
+\ifin@else\else\alg@tampon{\@top}\fi%
+\ifin@l\@fl\fi\if@ends\@num\@alltab\global\in@ltrue\fi%
+\if@ends\global\@smallbarfalse\alg@fi\@fl\@incl\global\in@lfalse\else\if@rules\global\@smallbartrue\else\global\@smallbarfalse\fi\fi
+}
+
+\def\alg@smallbar#1{%
+\sbox\@tempboxa{#1}\hspace{.5\wd\@tempboxa}\sbox\@tempboxa{\@sp\@sep}\hspace{-.5\wd\@tempboxa}\sbox\@tempboxa{\@sep}\hspace{\wd\@tempboxa}\textcolor{gray}{\begin{math}\bar{\phantom{l}}\end{math}}\sbox\@tempboxa{\textcolor{gray}{\begin{math}\bar{\phantom{l}}\end{math}}}\hspace{-\wd\@tempboxa}\sbox\@tempboxa{\@sep}\hspace{-\wd\@tempboxa}\sbox\@tempboxa{\@sp\@sep}\hspace{.5\wd\@tempboxa}\sbox\@tempboxa{#1}\hspace{-.5\wd\@tempboxa}}
+
+\def\OD{%
+\alg@pop{WHILE,FOR}%
+\alg@tampon{\@top}%
+\ifin@l\else\if@ends\@num\@alltab\global\in@ltrue\fi\fi%
+\if@ends\global\@smallbarfalse\def\@temp{FOR}\ifx\@temp\@top\alg@odf\else\alg@odw\fi\@fl\@incl\global\in@lfalse\else\if@rules\global\@smallbartrue\else\global\@smallbarfalse\fi\fi
+}
+
+\newcommand\SET[3][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\begin{math}#2\alg@set#3\end{math}\global\in@usefalse\@fl\@incl\global\in@lfalse
+}
+
+\def\SETo#1#2{%
+\ifmmode#1\alg@set#2\else\begin{math}#1\alg@set#2\end{math}\fi
+}
+
+\newcommand\SETCALL[4][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\SET{#2}{\CALL{#3}{#4}}}
+
+\newcommand\INC[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\begin{math}#2\alg@set#2+1\end{math}\global\in@usefalse\@fl\@incl\global\in@lfalse
+}
+
+\def\INCR{\INC}
+
+\newcommand\DEC[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\begin{math}#2\alg@set#2-1\end{math}\global\in@usefalse\@fl\@incl\global\in@lfalse
+}
+
+\def\DECR{\DEC}
+
+\newcommand\CALL[3][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\if@inALgo\ifin@l\else\ifin@use\else\@num\@alltab\fi\fi\fi%
+\ifmmode\textsc{#2(}#3\textsc{)}\else\textsc{#2(}\begin{math}#3\end{math}\textsc{)}\fi%
+\ifin@use\else\@fl\@incl\global\in@lfalse\fi
+}
+
+\def\CALLo#1#2{
+\textsc{#1(}\ifmmode#2\textsc{)}\else\begin{math}#2\end{math}\textsc{)}\fi
+}
+
+\def\Call{\CALL}
+
+\newcommand\RETURN[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@return\@sp\ifmmode#1\else\begin{math}#2\end{math}\fi\global\in@usefalse\@fl\@incl\global\in@lfalse
+}
+
+\newcommand\COM[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\if@nononum\@nonum\@alltab\@decl\else\ifnum@com\@num\@alltab\else\@nonum\@alltab\@decl\fi\fi\fi%
+\ifin@use\global\in@comfalse\relax\else\global\in@comtrue\relax\fi%
+\@com#2\ifin@use\else\@fl\@incl\global\in@lfalse\fi}
+
+\newcommand\ACT[2][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\fi%
+\ifin@use\global\in@comfalse\relax\else\global\in@comtrue\relax\fi%
+\ifmmode#1\else\begin{math}#1\end{math}\fi\ifin@use\else\@fl\@incl\global\in@lfalse\fi}
+
+\def\IN#1{%
+\global\@begintrue%
+\global\in@intrue%
+\ifin@ALgo\alg@error{Input too late...}\else%
+\@Com\alg@in#1\@fl%
+\fi%
+\global\in@infalse%
+}
+
+\def\OUT#1{%
+\global\@begintrue%
+\global\in@outtrue%
+\ifin@ALgo\alg@error{Output too late...}\else%
+\@Com\alg@out#1\@fl%
+\fi%
+\global\in@outfalse%
+}
+
+\def\AUX#1{%
+\global\@begintrue%
+\global\in@auxtrue%
+\ifin@ALgo\alg@error{Aux too late...}\else%
+\@Com\alg@aux#1\@fl%
+\fi%
+\global\in@auxfalse%
+}
+
+\def\@newl{%
+\ifin@com\@com\else%
+\ifin@in\tab@in\else%
+\ifin@out\tab@out\else%
+\ifin@aux\tab@aux\else%
+\def\@tempa{FOR}\ifx\@tempa\@top\@retour{\tab@for}\@saut{}{}{\alg@for\@sp}\else%
+\def\@tempa{WHILE}\ifx\@tempa\@top\@retour{\tab@while}\@saut{}{}{\alg@while\@sp}\else%
+\def\@tempa{IF}\ifx\@tempa\@top\@retour{\tab@if}\@saut{}{}{\alg@if\@sp}\else%
+\def\@tempa{ELSE}\ifx\@tempa\@top\@retour{\tab@else}\@saut{}{}{\alg@else\@sp}\else%
+\def\@tempa{DO}\ifx\@tempa\@top\@retour{\tab@dowhile}\@saut{}{}{\alg@dowhile\@sp}\else%
+\def\@tempa{REPEAT}\ifx\@tempa\@top\@retour{\tab@repeat}\@saut{}{}{\alg@repeat\@sp}%
+\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+}
+
+\def\CUT{\ifmmode%
+\end{math}%
+\ifin@ALgo\@fl\@nonum\@alltab\@newl\else\@fl\@Com\@newl\fi%
+\begin{math}%
+\else\ifin@ALgo\@fl\@nonum\@alltab\@newl\else\@fl\@Com\@newl\fi%
+\fi%
+\ignorespaces}
+
+\def\BEGIN{\ifin@ALgo\else\if@begin\gdef\tab@begin{\@saut{}{}{\tab@if}}\begin@ALgo\@incl\@fl\@num\else\gdef\tab@begin{}\fi\fi}
+
+\def\END{\ifin@ALgo\else\if@begin\@num\tab@begin\alg@@smallbar\@retour{\tab@begin}\end@ALgo\@fl\else\@nonum\alg@@smallbar\@fl\fi\fi}
+
+\def\LABEL#1{\@decl\label{#1}\@incl}
+
+\def\DIV{%
+\ifmmode\@sp\@ecrire{div}\@sp\else\@ecrire{\begin{math}div\end{math}}\fi}
+
+\def\MOD{%
+\ifmmode\@sp\@ecrire{mod}\@sp\else\@ecrire{\begin{math}mod\end{math}}\fi}
+
+\def\AND{%
+\ifmmode\@sp\@ecrire{and}\@sp\else\@ecrire{\begin{math}and\end{math}}\fi}
+
+\def\OR{%
+\ifmmode\@sp\@ecrire{or}\@sp\else\@ecrire{\begin{math}or\end{math}}\fi}
+
+\def\TRUE{\textsc{\alg@True}}
+\def\True{\textsc{\alg@True}}
+\def\true{\textsc{\alg@True}}
+
+\def\FALSE{\textsc{\alg@False}}
+\def\False{\textsc{\alg@False}}
+\def\false{\textsc{\alg@False}}
+
+\newcommand\BREAK[1][]{%
+\edef\@label{#1}%
+\ifx\@label\empty\else\label{#1}\fi
+\ifin@l\else\@num\@alltab\global\in@ltrue\fi%
+\global\in@usetrue%
+\alg@Break\global\in@usefalse\@fl\@incl\global\in@lfalse}
+
+\def\Algo#1{{\sc #1}}
+\def\ALGO#1{{\sc #1}}
+
+%\def\Break{\textsc{\alg@Break}}
+%\def\break{\textsc{\alg@Break}}
+
+\def\NIL{\textsc{nil}}
+\def\Nil{\textsc{nil}}
+\def\nil{\textsc{nil}}
+
