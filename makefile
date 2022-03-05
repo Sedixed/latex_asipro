@@ -10,7 +10,7 @@ LDFLAGS=-lfl
 LEXOPTS=-D_POSIX_SOURCE -DYY_NO_INPUT --nounput
 YACCOPTS=
 
-PROG=ex1
+PROG=algo2asm
 
 $(PROG): lex.yy.o $(PROG).tab.o
 	$(CC) $+ -o $@ $(LDFLAGS) 
