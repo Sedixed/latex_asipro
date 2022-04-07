@@ -22,8 +22,13 @@
 algo:
   error           { yyerrok; }
 | error algo      { yyerrok; }
-| BG '{' VARNAME '}' '{' lparam '}' instr END
+| BG '{' VARNAME '}' '{' lparam '}' block_instr END { printf("PUTAIN TA RACE PRINT QUELQUE CHOSE NON ? \n"); }
 | 
+;
+
+block_instr:
+  instr
+| instr block_instr
 ;
 
 lparam:
@@ -35,7 +40,7 @@ instr:
   SET '{' VARNAME '}' '{' expr '}' {
     fprintf(stderr, "Nom: %s\n", $3);
   }
-| instr instr
+//| instr
 ;
 
 expr:
