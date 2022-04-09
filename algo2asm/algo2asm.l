@@ -15,6 +15,12 @@
 \\begin\{algo\}         { printf("BEGIN"); return BG; } 
 \\end\{algo\}           { printf("END"); return END; }
 \\SET                   { printf("SET"); return SET; }
+\\RETURN                { printf("RETURN"); return RETURN; }
+\\IF                    { printf("IF"); return IF; }
+\\FI                    { printf("FI"); return FI; }
+\\ELSE                  { printf("ELSE"); return ELSE; }
+\\DOWHILE               { printf("DOWHILE"); return DOWHILE; }
+\\OD                    { printf("OD"); return OD; }
 [a-zA-Z_]+[a-zA-Z0-9_]* { printf("VAR:%s", yytext); strncpy(yylval.var_name, yytext, MAX_VAR_STRLEN); return VARNAME; }
 [[:digit:]]+            { string_to_int(&yylval.integer, yytext); printf("NUMBER:%d", yylval.integer); return NUMBER; }
 [[:blank:]]
