@@ -65,6 +65,8 @@
 %token<var_name> VARNAME 
 %token BG END SET RETURN IF FI ELSE DOWHILE OD
 
+%left LOWER LOWEREQ GREATER GREATEREQ
+%left EQ NEQ
 %left '+' '-' 
 %left '*' '/'
 %right UMINUS
@@ -237,6 +239,54 @@ expr:
 			$$ = NUMERIC;	
 		}
   }
+
+| expr LOWER expr {
+
+}
+
+| expr LOWEREQ expr {
+
+}
+
+| expr EQ expr {
+  if ($1 != NUMERIC || $3 != NUMERIC) {
+    fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+		$$ = TYPE_ERR;
+		free_symbol_table();
+		exit(EXIT_FAILURE);
+  } else {
+    unsigned int n = new_label_number();
+    char buf1[MAXBUF];
+		create_label(buf1, MAXBUF, "equals_%u", n);
+		char buf2[MAXBUF];
+		create_label(buf2, MAXBUF, "end_equals_%u", n);
+    dprintf(fd,
+      "; Comparison number %u of type \"equals\"\n"
+      "\tpop ax\n"
+      
+      );
+
+
+    $$ = NUMERIC;
+  }
+}
+
+| expr NEQ expr {
+
+}
+
+| expr GREATER expr {
+
+}
+
+| expr GREATEREQ expr {
+
+}
+
+| '(' expr ')' {
+    $$ = $2;
+  }
+}
 ; 
 %%
 
