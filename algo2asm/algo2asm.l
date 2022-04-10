@@ -21,14 +21,14 @@
 \\ELSE                  { printf("ELSE"); return ELSE; }
 \\DOWHILE               { printf("DOWHILE"); return DOWHILE; }
 \\OD                    { printf("OD"); return OD; } // pas trop sûr de la partie opérateurs qui suit
-"<"                     { printf("<"); reurn LOWER; } // surtout le égal/ non égal
-"<="                    { printf("<="); reurn LOWEREQ; }
-"="                     { printf("="); reurn EQ; }
-"!="                    { printf("!="); reurn NEQ; }
-">"                     { printf(">"); reurn GREATER; }
-">="                    { printf(">+"); reurn GREATEREQ; }
+"<"                     { printf("<"); return LOWER; } // surtout le égal/ non égal
+"<="                    { printf("<="); return LOWEREQ; }
+"="                     { printf("="); return EQ; }
+"!="                    { printf("!="); return NEQ; }
+">"                     { printf(">"); return GREATER; }
+">="                    { printf(">+"); return GREATEREQ; }
 [a-zA-Z_]+[a-zA-Z0-9_]* { printf("VAR:%s", yytext); strncpy(yylval.var_name, yytext, MAX_VAR_STRLEN); return VARNAME; }
-[[:digit:]]+            { string_to_int(&yylval.integer, yytext); printf("NUMBER:%d", yylval.integer); return NUMBER; }
+[+|-]?[[:digit:]]+            { string_to_int(&yylval.integer, yytext); printf("NUMBER:%d", yylval.integer); return NUMBER; }
 [[:blank:]]
 \n                      { printf("\n"); }
 .		                    { printf("%c", yytext[0]); return yytext[0]; }     

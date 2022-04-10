@@ -17,13 +17,8 @@ jmp ax
 	const sp,stack
 	const ax,2
 	sub sp,ax
-; Reading the number 1
-	const ax,1
-	push ax
-; Multiplying an expression by -1 (unary minus)
-	pop ax
-	const bx,-1
-	mul ax,bx
+; Reading the number -1
+	const ax,-1
 	push ax
 ; Affect a value to the variable p
 	const ax,var:p

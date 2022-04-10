@@ -13,6 +13,7 @@
 
   #define MAX_VAR_STRLEN 255
   #define FILE_PATH "output.asm"
+  #define MAXBUF 255
 
   int yylex(void);
   void yyerror(char const *);
@@ -262,9 +263,8 @@ expr:
 		create_label(buf2, MAXBUF, "end_equals_%u", n);
     dprintf(fd,
       "; Comparison number %u of type \"equals\"\n"
-      "\tpop ax\n"
-      
-      );
+      "\tpop ax\n", n
+    );
 
 
     $$ = NUMERIC;
@@ -286,7 +286,6 @@ expr:
 | '(' expr ')' {
     $$ = $2;
   }
-}
 ; 
 %%
 
