@@ -1,4 +1,5 @@
 %{
+  #define _POSIX_C_SOURCE 200809L
   #include <stdlib.h>
   #include <stdio.h>
   #include <sys/types.h>
@@ -7,6 +8,7 @@
   #include <unistd.h>
   #include <stdarg.h>
   #include <limits.h>
+  #include "stable.h"
   #include "type_synth.h"
 
   #define MAX_VAR_STRLEN 255
@@ -14,6 +16,7 @@
 
   int yylex(void);
   void yyerror(char const *);
+  void free_symbol_table();
   static unsigned int current_label_number = 0u;
   static unsigned int new_label_number();
   static void create_label(char *buf, size_t buf_size, const char *format, ...);
@@ -35,13 +38,20 @@
   int close_file();
 
   /**
-   * Returns 0 if the variable named VARIABLE is defined,
-   * -1 otherwise.
+   * Prints in the file described by fd the required
+   * beginning of the output file.
    *
    */
-  int is_varname_defined(const char *varname);
+  void print_start_of_file();
 
-  // file descriptor for output asm file
+  /**
+   * Prints in the file described by fd the required
+   * ending of the output file.
+   *
+   */
+  void print_end_of_file();
+
+  // File descriptor for output asm file
   int fd;
 %}
 %union {
@@ -50,7 +60,7 @@
   char var_name[MAX_VAR_STRLEN + 1];
 }
 
-%type<s> expr
+%type<s> expr instr
 %token<integer> NUMBER
 %token<var_name> VARNAME 
 %token BG END SET RETURN IF FI ELSE DOWHILE OD
@@ -81,7 +91,28 @@ lparam:
 
 instr:
   SET '{' VARNAME '}' '{' expr '}' {
-    //fprintf(stdout, "AFFECT:%s\n", $3);
+    if ($6 != NUMERIC) {
+      fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+			$$ = TYPE_ERR;
+			free_symbol_table();
+			exit(EXIT_FAILURE);
+    } else {
+
+      if (search_symbol_table($3) != NULL) {
+        // rien je pense car c'est legit en latex jcrois
+      }
+
+      symbol_table_entry *ste = new_symbol_table_entry($3);
+      // pas sûr du global
+			ste->class = GLOBAL_VARIABLE;
+			ste->desc[0] = INT_T;
+			dprintf(fd,
+        "; Affect a value to the variable %s\n"
+        "\tconst ax,var:%s\n"
+        "\tpop bx\n"
+        "\tstorew bx,ax\n", $3, $3);
+			$$ = STATEMENT;
+    }
   }
 
 | RETURN '{' expr '}' {
@@ -96,28 +127,115 @@ instr:
 
 expr:
   VARNAME {
-    printf("_V%s_\n", $1);
-    $$ = NUMERIC;
+    symbol_table_entry *var = search_symbol_table($1);
+		if (var == NULL) {
+			fprintf(stderr, "** ERREUR ** : La variable %s n'existe pas\n", $1);
+			$$ = UNDEFINED_VARIABLE;
+			free_symbol_table();
+			exit(EXIT_FAILURE);
+		} else {
+      dprintf(fd,
+        "; Reading the variable named %s\n"
+        "\tconst ax,var:%s\n"
+        "\tloadw bx,ax\n"
+        "\tpush bx\n", $1, $1);
+			$$ = NUMERIC;
+		}
   }
 
 | NUMBER {
-    //printf("_N%d_\n", $1);
+    dprintf(fd,
+      "; Reading the number %d\n"
+      "\tconst ax,%d\n"
+      "\tpush ax\n", $1, $1);
     $$ = NUMERIC;
   }
 
 | expr '+' expr {
-    // vérifier que si c'est des VARNAME, alors ils sont bien définis
-    // implanter fonction is_varname_defined
+    if ($1 != NUMERIC || $3 != NUMERIC) {
+			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+			$$ = TYPE_ERR;
+			free_symbol_table();
+			exit(EXIT_FAILURE);
+		} else {
+      dprintf(fd,
+        "; Adding two expressions\n"
+        "\tpop ax\n"
+        "\tpop bx\n"
+        "\tadd ax,bx\n"
+        "\tpush ax\n");
+			$$ = NUMERIC;
+		}
   }
 
 | expr '-' expr {
-    // vérifier que si c'est des VARNAME, alors ils sont bien définis
-    // implanter fonction is_varname_defined
+    if ($1 != NUMERIC || $3 != NUMERIC) {
+			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+			$$ = TYPE_ERR;
+			free_symbol_table();
+			exit(EXIT_FAILURE);
+		} else {
+      dprintf(fd,
+        "; Substracting two expressions\n"
+        "\tpop ax\n"
+        "\tpop bx\n"
+        "\tsub bx,ax\n"
+        "\tpush bx\n");
+			$$ = NUMERIC;
+		}
   }
 
+  | expr '*' expr {
+		if ($1 != NUMERIC || $3 != NUMERIC) {
+			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+			$$ = TYPE_ERR;
+			free_symbol_table();
+			exit(EXIT_FAILURE);
+		} else {
+      dprintf(fd,
+        "; Multiplying two expressions\n"
+        "\tpop ax\n"
+        "\tpop bx\n"
+        "\tmul ax,bx\n"
+        "\tpush ax\n");
+			$$ = NUMERIC;
+		}
+	}
+
+	| expr '/' expr {
+		if ($1 != NUMERIC || $3 != NUMERIC) {
+			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+			$$ = TYPE_ERR;
+			free_symbol_table();
+			exit(EXIT_FAILURE);
+		} else {
+      dprintf(fd,
+        "; Dividing two expressions\n"
+        "\tconst cx,div_err\n"
+        "\tpop ax\n"
+        "\tpop bx\n"
+        "\tdiv bx,ax\n"
+        "\tjmpe cx\n"
+        "\tpush ax\n");
+			$$ = NUMERIC;
+		}
+	}
+
 | '-' expr %prec UMINUS {
-    // vérifier que si c'est des VARNAME, alors ils sont bien définis
-    // implanter fonction is_varname_defined
+    if ($2 != NUMERIC) {
+      fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+			$$ = TYPE_ERR;
+			free_symbol_table();
+			exit(EXIT_FAILURE);
+    } else {
+      dprintf(fd,
+        "; Multiplying an expression by -1 (unary minus)\n"
+        "\tpop ax\n"
+        "\tconst bx,-1\n"
+        "\tmul ax,bx\n"
+        "\tpush ax\n");
+			$$ = NUMERIC;	
+		}
   }
 ; 
 %%
@@ -131,7 +249,11 @@ void yyerror(char const *s) {
 int main(void) {
   open_file();
 
+  print_start_of_file();
+
   yyparse();
+
+  print_end_of_file();
 
   close_file();
   return EXIT_SUCCESS;
@@ -154,9 +276,43 @@ int close_file() {
   return 0;
 }
 
-int is_varname_defined(const char *varname) {
-  //todo
-  return 0;
+void print_start_of_file() {
+  dprintf(fd,
+    "; ASM file obtained from a LaTeX file\n\n"
+    "\tconst ax,beginning\n"
+    "jmp ax\n\n"
+    ":div_err_str\n"
+    "@string \"Erreur : Division par 0 impossible\\n\"\n\n"
+    ":div_err\n"
+    "\tconst ax,div_err_str\n"
+    "\tcallprintfs ax\n"
+    "\tend\n\n"
+    ":beginning\n"
+    "; Stack preparation\n"
+    "\tconst bp,stack\n"
+    "\tconst sp,stack\n"
+    "\tconst ax,2\n"
+    "\tsub sp,ax\n");
+}
+
+void print_end_of_file() {
+  dprintf(fd, 
+    "\tend\n\n"
+    "; Variable declarations\n");
+
+  // Variable declarations
+	symbol_table_entry *st = symbol_table_get_head();
+	while (st != NULL) {
+		dprintf(fd, "\n:var:%s\n", st->name);
+		dprintf(fd, "@int 0\n");
+		st = st->next;
+	}
+	free_symbol_table();
+  
+  dprintf(fd,
+    "\n;Stack zone\n"
+    ":stack\n"
+    "@int 0\n");
 }
 
 static unsigned int new_label_number() {
@@ -182,4 +338,10 @@ void fail_with(const char *format, ...) {
 	vfprintf(stderr, format, ap);
 	va_end(ap);
 	exit(EXIT_FAILURE);
+}
+
+void free_symbol_table() {
+	while (symbol_table_get_head() != NULL) {
+		free_first_symbol_table_entry();
+	}
 }

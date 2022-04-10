@@ -12,7 +12,7 @@ YACCOPTS=
 
 PROG=algo2asm
 
-$(PROG): lex.yy.o $(PROG).tab.o
+$(PROG): lex.yy.o $(PROG).tab.o stable.o
 	$(CC) $+ -o $@ $(LDFLAGS) 
 
 lex.yy.c: $(PROG).l $(PROG).tab.h
