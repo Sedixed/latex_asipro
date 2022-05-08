@@ -1,7 +1,7 @@
 ; ASM file obtained from a LaTeX file
 
 	const ax,beginning
-jmp ax
+	jmp ax
 
 :div_err_str
 @string "Erreur : Division par 0 impossible\n"
