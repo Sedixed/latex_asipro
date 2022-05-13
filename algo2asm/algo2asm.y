@@ -8,6 +8,7 @@
   #include <unistd.h>
   #include <stdarg.h>
   #include <limits.h>
+  #include <assert.h>
   #include "stable.h"
   #include "type_synth.h"
 
@@ -130,7 +131,7 @@ instr:
     //fprintf(stdout, "el return\n");
   }
 
-  | IF '{' expr '}' if block_instr esle fi end_b {
+  | IF '{' expr '}' if block_instr esle fi end_b FI {
 		if ($3 != NUMERIC) {
 			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
 			$$ = TYPE_ERR;
@@ -139,7 +140,7 @@ instr:
 		}		
 	}
 
-	| IF '{' expr '}' if block_instr ELSE esle block_instr fi end_b {
+	| IF '{' expr '}' if block_instr ELSE esle block_instr fi end_b FI {
 		if ($3 != NUMERIC) {
 			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
 			$$ = TYPE_ERR;
@@ -147,7 +148,91 @@ instr:
 			exit(EXIT_FAILURE);
 		}		
 	}
+
+  | DOWHILE begin_while '{' expr '}' while block_instr elihw end_b OD {
+		if ($4 != NUMERIC) {
+			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+			$$ = TYPE_ERR;
+			free_symbol_table();
+			exit(EXIT_FAILURE);
+		}
+	}
 ;
+
+
+if : {
+	unsigned int n = new_label_number();
+  push(n);
+	char buf[MAXBUF];
+	create_label(buf, MAXBUF, "else_%u", n);
+  dprintf(fd,
+    "; Begin of the \"if\" condition (%u)\n"
+    "\tpop ax\n"
+    "\tconst bx,0\n"
+    "\tconst cx,%s\n"
+    "\tcmp ax,bx\n"
+    "\tjmpc cx\n"
+    "; True case of the \"if\" condition  (%u)\n", n, buf, n);
+}
+
+esle : {
+	unsigned int n = top();
+	char buf[MAXBUF];
+	create_label(buf, MAXBUF, "else_%u", n);
+  dprintf(fd,
+    "\tconst ax,end_if_%u\n"
+    "\tjmp ax\n"
+    ":%s\n"
+    "; False case of the \"if\" condition (%u)\n", n, buf, n
+  );
+}
+
+fi : {
+	unsigned int n = top();
+	char buf[MAXBUF];
+	create_label(buf, MAXBUF, "end_if_%u", n);
+	dprintf(fd, ":%s\n", buf);
+}
+
+begin_while : {
+	unsigned int n = new_label_number();
+	push(n);
+	char buf[MAXBUF];
+	create_label(buf, MAXBUF, "while_%u", n);
+  dprintf(fd,
+    "; Beginning of the \"do while\" loop  (%u)\n"
+    ":%s\n", n, buf
+  );
+}
+
+while : {
+	unsigned int n = top();
+	char buf[MAXBUF];
+	create_label(buf, MAXBUF, "end_while_%u", n);
+  dprintf(fd,
+    "\tpop ax\n"
+    "\tconst bx,0\n"
+    "\tconst cx,%s\n"
+    "\tcmp ax,bx\n"
+    "\tjmpc cx\n", buf
+  );
+}
+
+elihw : {
+	unsigned int n = top();
+	char buf[MAXBUF];
+	create_label(buf, MAXBUF, "end_while_%u", n);
+  dprintf(fd,
+    "\tconst ax,while_%u\n"
+    "\tjmp ax\n"
+    ":%s\n", n, buf
+  );
+}
+
+end_b : {
+	unsigned int n = pop();
+  dprintf(fd, "; End of the loop/condition (%u)\n", n);
+}
 
 
 // --- expr ---

@@ -20,8 +20,8 @@
 \\FI                    { printf("FI"); return FI; }
 \\ELSE                  { printf("ELSE"); return ELSE; }
 \\DOWHILE               { printf("DOWHILE"); return DOWHILE; }
-\\OD                    { printf("OD"); return OD; } // pas trop sûr de la partie opérateurs qui suit
-"<"                     { printf("<"); return LOWER; } // surtout le égal/ non égal
+\\OD                    { printf("OD"); return OD; }
+"<"                     { printf("<"); return LOWER; }
 "<="                    { printf("<="); return LOWEREQ; }
 "="                     { printf("="); return EQ; }
 "!="                    { printf("!="); return NEQ; }
@@ -39,9 +39,9 @@ void string_to_int(int *r, const char *s) {
   long v;
   errno = 0;
   v = strtol(s, &p, 10);
-  if ((*p != '\0' || (errno == ERANGE 
-                    && (v == LONG_MIN || v == LONG_MAX))) 
-                    || (v < INT_MIN || v > INT_MAX)) {
+  if ((*p != '\0' || 
+      (errno == ERANGE && (v == LONG_MIN || v == LONG_MAX))) || 
+      (v < INT_MIN || v > INT_MAX)) {
     fprintf(stderr, "Error converting string to int\n");
     exit(EXIT_FAILURE);
   } 
