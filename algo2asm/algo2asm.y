@@ -130,8 +130,8 @@ instr:
     //fprintf(stdout, "el return\n");
   }
 
-  | IF '(' expr ')' if block_instr esle fi end_b {
-		if ($3 != BOOLEAN) {
+  | IF '{' expr '}' if block_instr esle fi end_b {
+		if ($3 != NUMERIC) {
 			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
 			$$ = TYPE_ERR;
 			free_symbol_table();
@@ -139,8 +139,8 @@ instr:
 		}		
 	}
 
-	| IF '(' expr ')' if block_instr ELSE esle block_instr fi end_b {
-		if ($3 != BOOLEAN) {
+	| IF '{' expr '}' if block_instr ELSE esle block_instr fi end_b {
+		if ($3 != NUMERIC) {
 			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
 			$$ = TYPE_ERR;
 			free_symbol_table();
