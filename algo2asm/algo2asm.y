@@ -821,7 +821,7 @@ int main(int argc, char **argv) {
   // Open the given file and set it to the stdin
   FILE *file = NULL;
   if ((file = fopen(argv[1], "r")) == NULL) {
-    fprintf(stderr, "Can't open %s\n", argv[0]);
+    fprintf(stderr, "Can't open %s\n", argv[1]);
     return EXIT_FAILURE;
   }
   yyin = file;
