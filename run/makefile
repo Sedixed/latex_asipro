@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c18 \
+CFLAGS = -std=c11 \
   -Wall -Wconversion -Werror -Wextra -Wfatal-errors -Wpedantic -Wwrite-strings \
   -O2 -c
 LDFLAGS = 
