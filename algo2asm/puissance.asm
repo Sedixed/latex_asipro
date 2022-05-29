@@ -111,3 +111,27 @@
 	push ax
 	pop ax
 	ret
+
+:main
+; Stack initialisation
+	const bp,stack
+	const sp,stack
+	const ax,2
+	sub sp,ax
+; Build parameters
+	const ax,2
+	push ax
+	const ax,14
+	push ax
+; Call the puissance function
+	const ax,puissance
+	call ax
+; Get the result and print it
+	push ax
+	cp ax,sp
+	callprintfd ax
+	end
+
+; Stack zone
+:stack
+@int 0

@@ -123,7 +123,8 @@ block_instr:
 ;
 
 lparam:
-  param
+  
+| param
 | param ',' lparam
 ;
 

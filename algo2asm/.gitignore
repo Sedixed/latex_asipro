@@ -6,3 +6,4 @@ lex.*
 *.o
 *.out
 *.sipro
+*.asm
