@@ -68,13 +68,6 @@
    */
   int close_file();
 
-  /**
-   * Prints in the file described by fd the required
-   * ending of the output file.
-   *
-   */
-  void print_end_of_file();
-
   // File descriptor for output asm file
   int fd;
 %}
@@ -823,14 +816,14 @@ int main(void) {
 
   yyparse();
 
-  print_end_of_file();
+  free_symbol_table();
 
   close_file();
   return EXIT_SUCCESS;
 }
 
 int open_file() {
-  fd = open(FILE_PATH, O_CREAT | O_RDWR | O_APPEND | O_TRUNC, S_IRUSR | S_IWUSR);
+  fd = open(FILE_PATH, O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
 		perror("open ");
 		return -1;
@@ -919,35 +912,6 @@ int close_file() {
     return -1;
   }
   return 0;
-}
-
-void print_end_of_file() {
-  // Free symbol table
-	free_symbol_table();
-  
-  // Print the main
-  dprintf(fd,
-    "\n:main\n"
-    "; Stack preparation\n"
-    "\tconst bp,stack\n"
-    "\tconst sp,stack\n"
-    "\tconst ax,2\n"
-    "\tsub sp,ax\n"
-    "\tconst ax,2\n"
-    "\tpush ax\n"
-    "\tconst ax,0\n"
-    "\tpush ax\n"
-    "\tconst ax,puissance\n"
-    "\tcall ax\n"
-    "\tpush ax\n"
-    "\tcp ax,sp\n"
-    "\tcallprintfd ax\n"
-    "\tend\n");
-
-  dprintf(fd,
-    "\n;Stack zone\n"
-    ":stack\n"
-    "@int 0\n");
 }
 
 static unsigned int new_label_number() {
