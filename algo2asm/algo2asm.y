@@ -2,6 +2,7 @@
   #define _POSIX_C_SOURCE 200809L
   #include <stdlib.h>
   #include <stdio.h>
+  #include <string.h>
   #include <sys/types.h>
   #include <sys/stat.h>
   #include <fcntl.h>
@@ -32,6 +33,8 @@
   static void create_label(char *buf, size_t buf_size, const char *format, ...);
 	void fail_with(const char *format, ...);
 
+  int arguments_to_free = 0;
+
   /**
    * Opens the file get from the path FILE_PATH and associates it
    * to the file descriptor fd.
@@ -41,18 +44,29 @@
   int open_file();
 
   /**
+   * Get the variable named name in the asipro stack and push it on the top 
+   * of the stack.
+   */
+  void get_asm_var(const char *name);
+
+  /**
+   * Update the variable named name in the asipro stack with the value on the 
+  *  top of the stack.
+   */
+  void update_asm_var(const char *name);
+
+  /**
+   * Push or pop var in asipro and update the symbol table.
+   */
+  void push_var(const char *registry);
+  void pop_var(const char *registry);
+
+  /**
    * Closes the file get from the path FILE_PATH.
    * Returns -1 in case of failure, 0 otherwise.
    *
    */
   int close_file();
-
-  /**
-   * Prints in the file described by fd the required
-   * beginning of the output file.
-   *
-   */
-  void print_start_of_file();
 
   /**
    * Prints in the file described by fd the required
@@ -75,18 +89,38 @@
 %token<var_name> VARNAME 
 %token BG END SET RETURN IF FI ELSE DOWHILE OD
 
+%left OR
+%left AND
 %left LOWER LOWEREQ GREATER GREATEREQ
 %left EQ NEQ
 %left '+' '-' 
 %left '*' '/'
+%left CALL
 %right UMINUS
+%right NOT
 
 %start algo
 %%
 algo:
   error           { yyerrok; }
 | error algo      { yyerrok; }
-| BG '{' VARNAME '}' '{' lparam '}' block_instr END { printf("\nfin d'analyse\n"); }
+| BG '{' VARNAME '}' {
+    dprintf(fd,
+      "; ASM file obtained from a LaTeX file\n\n"
+      "\tconst ax,main\n"
+      "\tjmp ax\n\n"
+      ":div_err_str\n"
+      "@string \"Erreur : Division par 0 impossible\\n\"\n\n"
+      ":div_err\n"
+      "\tconst ax,div_err_str\n"
+      "\tcallprintfs ax\n"
+      "\tend\n\n"
+      ":%s\n", $3);
+  } '{' lparam '}' {
+    symbol_table_entry *ste = new_symbol_table_entry("!RET");
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
+  } block_instr END
 ;
 
 block_instr:
@@ -95,40 +129,51 @@ block_instr:
 ;
 
 lparam:
-  VARNAME
-| VARNAME ',' lparam
+  param
+| param ',' lparam
 ;
+
+param:
+  VARNAME {
+    // Ajoute la variable dans la table des symboles et asipro
+    symbol_table_entry *ste = new_symbol_table_entry($1);
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
+  }
 
 // --- instr ---
 
 instr:
   SET '{' VARNAME '}' '{' expr '}' {
-    if ($6 != NUMERIC) {
-      fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
-			$$ = TYPE_ERR;
-			free_symbol_table();
-			exit(EXIT_FAILURE);
+    if (search_symbol_table($3) != NULL) {
+      // Update the variable in the asipro stack
+      update_asm_var($3);
     } else {
-
-      if (search_symbol_table($3) != NULL) {
-        // rien je pense car c'est legit en latex jcrois
-      }
-
+      // Add the on the asipro stack
+      dprintf(fd, "; Add the %s variable in the stack\n", $3);
+      pop_var("ax");
+      dprintf(fd, "\tpush ax\n");
+      // Update the symbol table
       symbol_table_entry *ste = new_symbol_table_entry($3);
-      // pas sûr du global
-			ste->class = GLOBAL_VARIABLE;
-			ste->desc[0] = INT_T;
-			dprintf(fd,
-        "; Affect a value to the variable %s\n"
-        "\tconst ax,var:%s\n"
-        "\tpop bx\n"
-        "\tstorew bx,ax\n", $3, $3);
-			$$ = STATEMENT;
+      ste->class = GLOBAL_VARIABLE;
+      ste->desc[0] = INT_T;
+      $$ = STATEMENT;
     }
   }
 
   | RETURN '{' expr '}' {
-    //fprintf(stdout, "el return\n");
+    // Stock the value in ax and free the stack
+    pop_var("ax");
+    symbol_table_entry *st = symbol_table_get_head();
+    while (st != NULL) {
+      if (strcmp(st->name, "!RET") == 0) {
+        break;
+      }
+      fprintf(stderr, "%s", st->name);
+      dprintf(fd, "\tpop dx\n");
+      st = st->next;
+    }
+    dprintf(fd, "\tret\n");
   }
 
   | IF '{' expr '}' if block_instr esle fi end_b FI {
@@ -159,20 +204,19 @@ instr:
 	}
 ;
 
-
 if : {
 	unsigned int n = new_label_number();
   push(n);
 	char buf[MAXBUF];
 	create_label(buf, MAXBUF, "else_%u", n);
+  dprintf(fd, "; Begin of the \"if\" condition (ID: %u)\n", n);
+  pop_var("ax");
   dprintf(fd,
-    "; Begin of the \"if\" condition (%u)\n"
-    "\tpop ax\n"
     "\tconst bx,0\n"
     "\tconst cx,%s\n"
     "\tcmp ax,bx\n"
     "\tjmpc cx\n"
-    "; True case of the \"if\" condition  (%u)\n", n, buf, n);
+    "; True case of the \"if\" condition (ID: %u)\n", buf, n);
 }
 
 esle : {
@@ -183,7 +227,7 @@ esle : {
     "\tconst ax,end_if_%u\n"
     "\tjmp ax\n"
     ":%s\n"
-    "; False case of the \"if\" condition (%u)\n", n, buf, n
+    "; False case of the \"if\" condition (ID: %u)\n", n, buf, n
   );
 }
 
@@ -200,7 +244,7 @@ begin_while : {
 	char buf[MAXBUF];
 	create_label(buf, MAXBUF, "while_%u", n);
   dprintf(fd,
-    "; Beginning of the \"do while\" loop  (%u)\n"
+    "; Beginning of the \"do while\" loop (ID: %u)\n"
     ":%s\n", n, buf
   );
 }
@@ -209,8 +253,8 @@ while : {
 	unsigned int n = top();
 	char buf[MAXBUF];
 	create_label(buf, MAXBUF, "end_while_%u", n);
+  pop_var("ax");
   dprintf(fd,
-    "\tpop ax\n"
     "\tconst bx,0\n"
     "\tconst cx,%s\n"
     "\tcmp ax,bx\n"
@@ -231,7 +275,7 @@ elihw : {
 
 end_b : {
 	unsigned int n = pop();
-  dprintf(fd, "; End of the loop/condition (%u)\n", n);
+  dprintf(fd, "; End of the loop/condition (ID: %u)\n", n);
 }
 
 
@@ -246,11 +290,7 @@ expr:
 			free_symbol_table();
 			exit(EXIT_FAILURE);
 		} else {
-      dprintf(fd,
-        "; Reading the variable named %s\n"
-        "\tconst ax,var:%s\n"
-        "\tloadw bx,ax\n"
-        "\tpush bx\n", $1, $1);
+      get_asm_var($1);
 			$$ = NUMERIC;
 		}
   }
@@ -258,8 +298,8 @@ expr:
 | NUMBER {
     dprintf(fd,
       "; Reading the number %d\n"
-      "\tconst ax,%d\n"
-      "\tpush ax\n", $1, $1);
+      "\tconst ax,%d\n", $1, $1);
+    push_var("ax");
     $$ = NUMERIC;
   }
 
@@ -270,12 +310,11 @@ expr:
 			free_symbol_table();
 			exit(EXIT_FAILURE);
 		} else {
-      dprintf(fd,
-        "; Adding two expressions\n"
-        "\tpop ax\n"
-        "\tpop bx\n"
-        "\tadd ax,bx\n"
-        "\tpush ax\n");
+      dprintf(fd, "; Adding two expressions\n");
+      pop_var("ax");
+      pop_var("bx");
+      dprintf(fd, "\tadd ax,bx\n");
+      push_var("ax");
 			$$ = NUMERIC;
 		}
   }
@@ -287,12 +326,11 @@ expr:
 			free_symbol_table();
 			exit(EXIT_FAILURE);
 		} else {
-      dprintf(fd,
-        "; Substracting two expressions\n"
-        "\tpop ax\n"
-        "\tpop bx\n"
-        "\tsub bx,ax\n"
-        "\tpush bx\n");
+      dprintf(fd, "; Substracting two expressions\n");
+      pop_var("ax");
+      pop_var("bx");
+      dprintf(fd, "\tsub bx,ax\n");
+      push_var("bx");
 			$$ = NUMERIC;
 		}
   }
@@ -304,12 +342,11 @@ expr:
 			free_symbol_table();
 			exit(EXIT_FAILURE);
 		} else {
-      dprintf(fd,
-        "; Multiplying two expressions\n"
-        "\tpop ax\n"
-        "\tpop bx\n"
-        "\tmul ax,bx\n"
-        "\tpush ax\n");
+      dprintf(fd, "; Multiplying two expressions\n");
+      pop_var("ax");
+      pop_var("bx");
+      dprintf(fd, "\tmul ax,bx\n");
+      push_var("ax");
 			$$ = NUMERIC;
 		}
 	}
@@ -321,14 +358,15 @@ expr:
 			free_symbol_table();
 			exit(EXIT_FAILURE);
 		} else {
-      dprintf(fd,
+      dprintf(fd, 
         "; Dividing two expressions\n"
-        "\tconst cx,div_err\n"
-        "\tpop ax\n"
-        "\tpop bx\n"
+        "\tconst cx,div_err\n");
+      pop_var("ax");
+      pop_var("bx");
+      dprintf(fd, 
         "\tdiv bx,ax\n"
-        "\tjmpe cx\n"
-        "\tpush ax\n");
+        "\tjmpe cx\n");
+      push_var("bx");
 			$$ = NUMERIC;
 		}
 	}
@@ -340,50 +378,56 @@ expr:
 			free_symbol_table();
 			exit(EXIT_FAILURE);
     } else {
+      dprintf(fd,"; Multiplying an expression by -1 (unary minus)\n");
+      pop_var("ax");
       dprintf(fd,
-        "; Multiplying an expression by -1 (unary minus)\n"
-        "\tpop ax\n"
         "\tconst bx,-1\n"
-        "\tmul ax,bx\n"
-        "\tpush ax\n");
+        "\tmul ax,bx\n");
+      push_var("ax");
 			$$ = NUMERIC;	
 		}
   }
 
 | expr LOWER expr {
   if ($1 != NUMERIC || $3 != NUMERIC) {
-			fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
-			$$ = TYPE_ERR;
-			free_symbol_table();
-			exit(EXIT_FAILURE);
-		} else {
-      unsigned int n = new_label_number();
-			char buf[MAXBUF];
-			create_label(buf, MAXBUF, "lower_than_%u", n);
-			char buf2[MAXBUF];
-			create_label(buf2, MAXBUF, "end_lower_than_%u", n);
-			// Début de la comparaison
-      dprintf(fd,
-        "; Comparison number %u of type \"lower than\"\n"
-        "\tpop ax\n"
-        "\tpop bx\n"
-        "\tconst cx,%s\n"
-        "\tsless bx,ax\n"
-        "\tjmpc cx\n"
-        "; False case\n"
-        "\tconst ax,0\n"
-        "\tpush ax\n"
-        "\tconst ax,%s\n"
-        "\tjmp ax\n"
-        "; True case\n"
-        ":%s\n"
-        "\tconst ax,1\n"
-        "\tpush ax\n"
-        "; End of comparison number %u of type \"lower than\"\n"
-        ":%s\n", n, buf, buf2, buf, n, buf2
-      );
-      $$ = NUMERIC;
-		}
+    fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+    $$ = TYPE_ERR;
+    free_symbol_table();
+    exit(EXIT_FAILURE);
+  } else {
+    // Creating labels
+    unsigned int n = new_label_number();
+    char buf[MAXBUF];
+    create_label(buf, MAXBUF, "lower_than_%u", n);
+    char buf2[MAXBUF];
+    create_label(buf2, MAXBUF, "end_lower_than_%u", n);
+
+    // Comparison
+    dprintf(fd, "; Comparison of type \"lower than\" (ID: %u)\n", n);
+    pop_var("ax");
+    pop_var("bx");
+    dprintf(fd,
+      "\tconst cx,%s\n"
+      "\tsless bx,ax\n"
+      "\tjmpc cx\n"
+      "; False case (ID: %u)\n"
+      "\tconst ax,0\n"
+      "\tpush ax\n"
+      "\tconst ax,%s\n"
+      "\tjmp ax\n"
+      "; True case (ID: %u)\n"
+      ":%s\n"
+      "\tconst ax,1\n"
+      "\tpush ax\n"
+      "; End of comparison of type \"lower than\" (ID: %u)\n"
+      ":%s\n", buf, n, buf2, n, buf, n, buf2);
+
+    // Add the temp variable to the symbol table
+    symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
+    $$ = NUMERIC;
+  }
 }
 
 | expr LOWEREQ expr {
@@ -398,30 +442,124 @@ expr:
 			create_label(buf, MAXBUF, "lowereq_%u", n);
 			char buf2[MAXBUF];
 			create_label(buf2, MAXBUF, "end_lowereq_%u", n);
+      
+      // Comparison
+      dprintf(fd, "; Comparison of type \"lower than or equal\" (ID: %u)\n", n);
+      pop_var("ax");
+      pop_var("bx");
       dprintf(fd,
-        "; Comparison number %u of type \"lowereq\"\n"
-        "\tpop ax\n"
-        "\tpop bx\n"
         "\tcp cx,bx\n"
         "\tconst dx,%s\n"
         "\tsless bx,ax\n"
         "\tjmpc dx\n"
         "\tcmp cx,ax\n"
         "\tjmpc dx\n"
-        "; False case\n"
+        "; False case (ID: %u)\n"
         "\tconst ax,0\n"
         "\tpush ax\n"
         "\tconst ax,%s\n"
         "\tjmp ax\n"
-        "; True case\n"
+        "; True case (ID: %u)\n"
         ":%s\n"
         "\tconst ax,1\n"
         "\tpush ax\n"
-        "; End of comparison number %u of type \"lowereq\"\n"
-        ":%s\n",n, buf, buf2, buf, n, buf2
+        "; End of comparison of type \"lower than or equal\" (ID: %u)\n"
+        ":%s\n", buf, n, buf2, n, buf, n, buf2
       );
-			$$ = NUMERIC;
+
+      // Add the temp variable to the symbol table
+      symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+      ste->class = GLOBAL_VARIABLE;
+      ste->desc[0] = INT_T;
+      $$ = NUMERIC;
 		}
+}
+
+| expr GREATER expr {
+  if ($1 != NUMERIC || $3 != NUMERIC) {
+    fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+    $$ = TYPE_ERR;
+    free_symbol_table();
+    exit(EXIT_FAILURE);
+  } else {
+    int n = new_label_number();
+    char buf[MAXBUF];
+    create_label(buf, MAXBUF, "greater_%u", n);
+    char buf2[MAXBUF];
+    create_label(buf2, MAXBUF, "end_greater_%u", n);
+    
+    // Comparison
+    dprintf(fd, "; Comparison of type \"greater than\" (ID: %u)\n", n);
+    pop_var("ax");
+    pop_var("bx");
+    dprintf(fd,
+      "\tcp cx,bx\n"
+      "\tconst dx,%s\n"
+      "\tsless bx,ax\n"
+      "\tjmpc dx\n"
+      "\tcmp cx,ax\n"
+      "\tjmpc dx\n"
+      "; False case (ID: %u)\n"
+      "\tconst ax,1\n"
+      "\tpush ax\n"
+      "\tconst ax,%s\n"
+      "\tjmp ax\n"
+      "; True case (ID: %u)\n"
+      ":%s\n"
+      "\tconst ax,0\n"
+      "\tpush ax\n"
+      "; End of comparison of type \"greater than\" (ID: %u)\n"
+      ":%s\n", buf, n, buf2, n, buf, n, buf2
+    );
+
+    // Add the temp variable to the symbol table
+    symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
+    $$ = NUMERIC;
+  }
+}
+
+| expr GREATEREQ expr {
+if ($1 != NUMERIC || $3 != NUMERIC) {
+    fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+    $$ = TYPE_ERR;
+    free_symbol_table();
+    exit(EXIT_FAILURE);
+  } else {
+    // Creating labels
+    unsigned int n = new_label_number();
+    char buf[MAXBUF];
+    create_label(buf, MAXBUF, "greatereq_than_%u", n);
+    char buf2[MAXBUF];
+    create_label(buf2, MAXBUF, "end_greatereq_than_%u", n);
+
+    // Comparison
+    dprintf(fd, "; Comparison of type \"greater than or equal\" (ID: %u)\n", n);
+    pop_var("ax");
+    pop_var("bx");
+    dprintf(fd,
+      "\tconst cx,%s\n"
+      "\tsless bx,ax\n"
+      "\tjmpc cx\n"
+      "; False case (ID: %u)\n"
+      "\tconst ax,1\n"
+      "\tpush ax\n"
+      "\tconst ax,%s\n"
+      "\tjmp ax\n"
+      "; True case (ID: %u)\n"
+      ":%s\n"
+      "\tconst ax,0\n"
+      "\tpush ax\n"
+      "; End of comparison of type \"greater than or equal\" (ID: %u)\n"
+      ":%s\n", buf, n, buf2, n, buf, n, buf2);
+
+    // Add the temp variable to the symbol table
+    symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
+    $$ = NUMERIC;
+  }
 }
 
 | expr EQ expr {
@@ -436,25 +574,32 @@ expr:
 		create_label(buf1, MAXBUF, "equals_%u", n);
 		char buf2[MAXBUF];
 		create_label(buf2, MAXBUF, "end_equals_%u", n);
+
+    // Comparison
+    dprintf(fd, "; Comparison number of type \"equals\" (ID: %u)\n", n);
+    pop_var("ax");
+    pop_var("bx");
     dprintf(fd,
-      "; Comparison number %u of type \"equals\"\n"
-      "\tpop ax\n"
-      "\tpop bx\n"
       "\tconst cx,%s\n"
       "\tcmp ax,bx\n"
       "\tjmpc cx\n"
-      "; False case\n"
+      "; False case (ID: %u)\n"
       "\tconst ax,0\n"
       "\tpush ax\n"
       "\tconst ax,%s\n"
       "\tjmp ax\n"
-      "; True case\n"
+      "; True case (ID: %u)\n"
       ":%s\n"
       "\tconst ax,1\n"
       "\tpush ax\n"
-      "; End of comparison number %u of type \"equals\"\n"
-      ":%s\n", n, buf1, buf2, buf1, n, buf2
+      "; End of comparison number of type \"equals\" (ID: %u)\n"
+      ":%s\n", buf1, n, buf2, n, buf1, n, buf2
     );
+    
+    // Add the temp variable to the symbol table
+    symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
     $$ = NUMERIC;
   }
 }
@@ -471,41 +616,200 @@ expr:
 		create_label(buf1, MAXBUF, "nequals_%u", n);
 		char buf2[MAXBUF];
 		create_label(buf2, MAXBUF, "end_nequals_%u", n);
+
+    // Comparison
+    dprintf(fd, "; Comparison number of type \"non equals\" (ID: %u)\n", n);
+    pop_var("ax");
+    pop_var("bx");
     dprintf(fd,
-      "; Comparison number %u of type \"nequals\"\n"
-      "\tpop ax\n"
-      "\tpop bx\n"
       "\tconst cx,%s\n"
       "\tcmp ax,bx\n"
       "\tjmpc cx\n"
-      "; True case\n"
+      "; True case (ID: %u)\n"
       "\tconst ax,1\n"
       "\tpush ax\n"
       "\tconst ax,%s\n"
       "\tjmp ax\n"
-      "; False case\n"
+      "; False case (ID : %u)\n"
       ":%s\n"
       "\tconst ax,0\n"
       "\tpush ax\n"
-      "; End of comparison number %u of type \"nequals\"\n"
-      ":%s\n", n, buf1, buf2, buf1, n, buf2
+      "; End of comparison number of type \"non equals\" (ID: %u)\n"
+      ":%s\n", buf1, n, buf2, n, buf1, n, buf2
     );
+    
+    // Add the temp variable to the symbol table
+    symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
     $$ = NUMERIC;
   }
 }
 
-| expr GREATER expr {
+| expr OR expr {
+  if ($1 != NUMERIC || $3 != NUMERIC) {
+    fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+    $$ = TYPE_ERR;
+    free_symbol_table();
+    exit(EXIT_FAILURE);
+  } else {
+    int n = new_label_number();
+    char buf1[MAXBUF];
+    create_label(buf1, MAXBUF, "or_equals_%u", n);
+    char buf2[MAXBUF];
+    create_label(buf2, MAXBUF, "end_or_equals_%u", n);
+    
+    // Comparison
+    dprintf(fd, "; Logical or (ID: %u)\n", n);
+    pop_var("ax");
+    pop_var("bx");
+    dprintf(fd,
+      "\tor ax,bx\n"
+      "\tconst bx,0\n"
+      "\tconst cx,%s\n"
+      "\tcmp ax,bx\n"
+      "\tjmpc cx\n"
+      "; False case (ID: %u)\n"
+      "\tconst ax,1\n"
+      "\tpush ax\n"
+      "\tconst ax,%s\n"
+      "\tjmp ax\n"
+      "; True case (ID: %u)\n"
+      ":%s\n"
+      "\tconst ax,0\n"
+      "\tpush ax\n"
+      "; End of comparison number of type \"equals\" (ID: %u)\n"
+      ":%s\n", buf1, n, buf2, n, buf1, n, buf2
+    );
 
+    // Add the temp variable to the symbol table
+    symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
+    $$ = NUMERIC;
+  }
 }
 
-| expr GREATEREQ expr {
+| expr AND expr {
+  if ($1 != NUMERIC || $3 != NUMERIC) {
+    fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+    $$ = TYPE_ERR;
+    free_symbol_table();
+    exit(EXIT_FAILURE);
+  } else {
+    int n = new_label_number();
+    char buf1[MAXBUF];
+    create_label(buf1, MAXBUF, "mul_equals_%u", n);
+    char buf2[MAXBUF];
+    create_label(buf2, MAXBUF, "end_mul_equals_%u", n);
+    
+    // Comparison
+    dprintf(fd, "; Logical or (ID: %u)\n", n);
+    pop_var("ax");
+    pop_var("bx");
+    dprintf(fd,
+      "\tmul ax,bx\n"
+      "\tconst bx,0\n"
+      "\tconst cx,%s\n"
+      "\tcmp ax,bx\n"
+      "\tjmpc cx\n"
+      "; False case (ID: %u)\n"
+      "\tconst ax,1\n"
+      "\tpush ax\n"
+      "\tconst ax,%s\n"
+      "\tjmp ax\n"
+      "; True case (ID: %u)\n"
+      ":%s\n"
+      "\tconst ax,0\n"
+      "\tpush ax\n"
+      "; End of comparison number of type \"equals\" (ID: %u)\n"
+      ":%s\n", buf1, n, buf2, n, buf1, n, buf2
+    );
 
+    // Add the temp variable to the symbol table
+    symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
+    $$ = NUMERIC;
+  }
+}
+
+| NOT expr {
+  if ($2 != NUMERIC) {
+    fprintf(stderr, "** ERREUR ** : Une erreur de type est survenue\n");
+		$$ = TYPE_ERR;
+		free_symbol_table();
+		exit(EXIT_FAILURE);
+  } else {
+    unsigned int n = new_label_number();
+    char buf1[MAXBUF];
+		create_label(buf1, MAXBUF, "not_%u", n);
+		char buf2[MAXBUF];
+		create_label(buf2, MAXBUF, "end_not_%u", n);
+
+    // Comparison
+    dprintf(fd, "; Logical not (ID: %u)\n", n);
+    pop_var("ax");
+    dprintf(fd,
+      "\tconst cx,%s\n"
+      "\tconst bx,0\n"
+      "\tcmp ax,bx\n"
+      "\tjmpc cx\n"
+      "; False case (ID: %u)\n"
+      "\tconst ax,1\n"
+      "\tpush ax\n"
+      "\tconst ax,%s\n"
+      "\tjmp ax\n"
+      "; True case (ID: %u)\n"
+      ":%s\n"
+      "\tconst ax,0\n"
+      "\tpush ax\n"
+      "; End logical not (ID: %u)\n"
+      ":%s\n", buf1, n, buf2, n, buf1, n, buf2
+    );
+    
+    // Add the temp variable to the symbol table
+    symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+    ste->class = GLOBAL_VARIABLE;
+    ste->desc[0] = INT_T;
+    $$ = NUMERIC;
+  }
+}
+
+| CALL '{' VARNAME '}' '{' lexpr '}' {
+  dprintf(fd,
+    "; Call the %s function\n"
+    "\tconst bx,%s\n"
+    "\tcall bx\n", $3, $3);
+
+  // Free the temp variables (parameters) in the symbol table and add the pop
+  dprintf(fd, "; Pop the called function args\n");
+  for (size_t i = 0; i < arguments_to_free; ++i) {
+    pop_var("dx");
+  }
+
+  // Push the returned value on the stack
+  dprintf(fd, "; Push the returned value on the stack\n");
+  push_var("ax");
+
+  $$ = NUMERIC;
 }
 
 | '(' expr ')' {
     $$ = $2;
   }
-; 
+;
+
+lexpr:
+  tmp_expr
+| tmp_expr ',' lexpr
+;
+
+tmp_expr:
+  expr {
+    ++arguments_to_free;
+  }
+;
 %%
 
 // --- Functions implantations ---
@@ -516,8 +820,6 @@ void yyerror(char const *s) {
 
 int main(void) {
   open_file();
-
-  print_start_of_file();
 
   yyparse();
 
@@ -536,6 +838,81 @@ int open_file() {
   return 0;
 }
 
+void get_asm_var(const char *name) {
+  // Search the index of name
+  symbol_table_entry *st = symbol_table_get_head();
+  size_t var_index = 0;
+	while (st != NULL) {
+		if (strcmp(st->name, name) == 0) {
+      break;
+    }
+    ++var_index;
+		st = st->next;
+	}
+
+  // Add the asm code to calculate the stack adress and push the value
+  dprintf(fd,
+    "; Get the %s variable and push it in the top of the stack\n"
+    "\tconst ax,2\n"
+    "\tconst bx,%zu\n"
+    "\tmul ax,bx\n"
+    "\tcp bx,sp\n"
+    "\tsub bx,ax\n"
+    "\tloadw ax,bx\n"
+    "\tpush ax\n",
+    name, var_index
+  );
+
+  // Add the pushed variable to the symbol table
+  symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+  ste->class = GLOBAL_VARIABLE;
+  ste->desc[0] = INT_T;
+}
+
+void update_asm_var(const char *name) {
+  // Search the index of name
+  symbol_table_entry *st = symbol_table_get_head();
+  size_t var_index = 0;
+	while (st != NULL) {
+		if (strcmp(st->name, name) == 0) {
+      break;
+    }
+    ++var_index;
+		st = st->next;
+	}
+
+  // Add the asm code to calculate the stack adress and update the value
+  dprintf(fd,
+    "; Update the %s variable in the stack\n"
+    "\tconst ax,2\n"
+    "\tconst bx,%zu\n"
+    "\tmul ax,bx\n"
+    "\tcp bx,sp\n"
+    "\tsub bx,ax\n"
+    "\tpop ax\n"
+    "\tstorew ax,bx\n",
+    name, var_index
+  );
+
+  // Free first table entry
+  free_first_symbol_table_entry();
+}
+
+void push_var(const char *registry) {
+  symbol_table_entry *ste = new_symbol_table_entry("!TEMP");
+  ste->class = GLOBAL_VARIABLE;
+  ste->desc[0] = INT_T;
+  dprintf(fd,
+    "; Push a temp variable on the stack\n"
+    "\tpush %s\n", registry);
+}
+
+void pop_var(const char *registry) {
+  free_first_symbol_table_entry();
+  dprintf(fd,
+    "\tpop %s\n", registry);
+}
+
 int close_file() {
   if (close(fd) < 0) {
     perror("close ");
@@ -544,39 +921,29 @@ int close_file() {
   return 0;
 }
 
-void print_start_of_file() {
+void print_end_of_file() {
+  // Free symbol table
+	free_symbol_table();
+  
+  // Print the main
   dprintf(fd,
-    "; ASM file obtained from a LaTeX file\n\n"
-    "\tconst ax,beginning\n"
-    "\tjmp ax\n\n"
-    ":div_err_str\n"
-    "@string \"Erreur : Division par 0 impossible\\n\"\n\n"
-    ":div_err\n"
-    "\tconst ax,div_err_str\n"
-    "\tcallprintfs ax\n"
-    "\tend\n\n"
-    ":beginning\n"
+    "\n:main\n"
     "; Stack preparation\n"
     "\tconst bp,stack\n"
     "\tconst sp,stack\n"
     "\tconst ax,2\n"
-    "\tsub sp,ax\n");
-}
+    "\tsub sp,ax\n"
+    "\tconst ax,2\n"
+    "\tpush ax\n"
+    "\tconst ax,0\n"
+    "\tpush ax\n"
+    "\tconst ax,puissance\n"
+    "\tcall ax\n"
+    "\tpush ax\n"
+    "\tcp ax,sp\n"
+    "\tcallprintfd ax\n"
+    "\tend\n");
 
-void print_end_of_file() {
-  dprintf(fd, 
-    "\tend\n\n"
-    "; Variable declarations\n");
-
-  // Variable declarations
-	symbol_table_entry *st = symbol_table_get_head();
-	while (st != NULL) {
-		dprintf(fd, "\n:var:%s\n", st->name);
-		dprintf(fd, "@int 0\n");
-		st = st->next;
-	}
-	free_symbol_table();
-  
   dprintf(fd,
     "\n;Stack zone\n"
     ":stack\n"

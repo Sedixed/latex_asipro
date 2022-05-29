@@ -12,26 +12,30 @@
 %}
 %option noyywrap
 %%
-\\begin\{algo\}         { printf("BEGIN"); return BG; } 
-\\end\{algo\}           { printf("END"); return END; }
-\\SET                   { printf("SET"); return SET; }
-\\RETURN                { printf("RETURN"); return RETURN; }
-\\IF                    { printf("IF"); return IF; }
-\\FI                    { printf("FI"); return FI; }
-\\ELSE                  { printf("ELSE"); return ELSE; }
-\\DOWHILE               { printf("DOWHILE"); return DOWHILE; }
-\\OD                    { printf("OD"); return OD; }
-"<"                     { printf("<"); return LOWER; }
-"<="                    { printf("<="); return LOWEREQ; }
-"="                     { printf("="); return EQ; }
-"!="                    { printf("!="); return NEQ; }
-">"                     { printf(">"); return GREATER; }
-">="                    { printf(">+"); return GREATEREQ; }
-[a-zA-Z_]+[a-zA-Z0-9_]* { printf("VAR:%s", yytext); strncpy(yylval.var_name, yytext, MAX_VAR_STRLEN); return VARNAME; }
-[+|-]?[[:digit:]]+            { string_to_int(&yylval.integer, yytext); printf("NUMBER:%d", yylval.integer); return NUMBER; }
+\\begin\{algo\}         { return BG; } 
+\\end\{algo\}           { return END; }
+\\CALL                  { return CALL; }
+\\SET                   { return SET; }
+\\RETURN                { return RETURN; }
+\\IF                    { return IF; }
+\\FI                    { return FI; }
+\\ELSE                  { return ELSE; }
+\\DOWHILE               { return DOWHILE; }
+\\OD                    { return OD; }
+"<"                     { return LOWER; }
+"<="                    { return LOWEREQ; }
+"="                     { return EQ; }
+"!="                    { return NEQ; }
+">"                     { return GREATER; }
+">="                    { return GREATEREQ; }
+"||"                    { return OR; }
+"&&"                    { return AND; }
+"!"                     { return NOT; }
+[a-zA-Z_]+[a-zA-Z0-9_]* { strncpy(yylval.var_name, yytext, MAX_VAR_STRLEN); return VARNAME; }
+[+|-]?[[:digit:]]+      { string_to_int(&yylval.integer, yytext); return NUMBER; }
 [[:blank:]]
-\n                      { printf("\n"); }
-.		                    { printf("%c", yytext[0]); return yytext[0]; }     
+\n                      
+.		                    { return yytext[0]; }     
 %%
 
 void string_to_int(int *r, const char *s) {
