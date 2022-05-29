@@ -20,7 +20,6 @@
 
 #define SIPRO_SEPARATOR "{"
 
-#define OUTPUT_FILENAME "output.asm"
 #define NAME_MAX 255
 
 #define OUTPUT_SIPRO_NAME "out.sipro"
@@ -51,11 +50,19 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  // Extract the algorithm name
+  char sipro_cmd[MAX_SIPRO_CMD_LENGTH + 1];
+  memset(sipro_cmd, 0, MAX_SIPRO_CMD_LENGTH + 1);
+  strncpy(sipro_cmd, argv[SIPRO], MAX_SIPRO_CMD_LENGTH);
+  char *name = strtok(sipro_cmd, SIPRO_SEPARATOR);
+  name = strtok(NULL, SIPRO_SEPARATOR);
+  name[strlen(name) - 1] = 0;
+
   // Open the output file
   char output_asm_path[PATH_MAX + NAME_MAX + 1];
   memset(output_asm_path, 0, PATH_MAX + NAME_MAX + 1);
-  snprintf(output_asm_path, PATH_MAX + NAME_MAX, "%s%s", 
-      ALGO2ASM_FOLDER, OUTPUT_FILENAME);
+  snprintf(output_asm_path, PATH_MAX + NAME_MAX, "%s%s.%s", 
+      ALGO2ASM_FOLDER, name, "asm");
   int output_fd = 0;
   if ((output_fd = open(output_asm_path, O_APPEND | O_RDWR)) < 0) {
     fprintf(stderr, "Failed to open %s file\n", output_asm_path);
@@ -71,14 +78,6 @@ int main(int argc, char **argv) {
     "\tconst ax,2\n"
     "\tsub sp,ax\n"
   );
-
-  // Extract the algorithm name
-  char sipro_cmd[MAX_SIPRO_CMD_LENGTH + 1];
-  memset(sipro_cmd, 0, MAX_SIPRO_CMD_LENGTH + 1);
-  strncpy(sipro_cmd, argv[SIPRO], MAX_SIPRO_CMD_LENGTH);
-  char *name = strtok(sipro_cmd, SIPRO_SEPARATOR);
-  name = strtok(NULL, SIPRO_SEPARATOR);
-  name[strlen(name) - 1] = 0;
   
   // Extract the parameters
   char *parameters = strtok(NULL, SIPRO_SEPARATOR);

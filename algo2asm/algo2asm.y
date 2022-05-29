@@ -14,8 +14,9 @@
   #include "type_synth.h"
 
   #define MAX_VAR_STRLEN 255
-  #define FILE_PATH "output.asm"
   #define MAXBUF 255
+
+  extern FILE *yyin;
 
   // Stack
   #define STACK_SIZE 1024
@@ -811,8 +812,26 @@ void yyerror(char const *s) {
   fprintf(stderr, "%s\n", s);
 }
 
-int main(void) {
-  open_file();
+int main(int argc, char **argv) {
+  if (argc < 2) {
+    fprintf(stderr, "Syntax : %s <input .tex file>\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  // Open the given file and set it to the stdin
+  FILE *file = NULL;
+  if ((file = fopen(argv[1], "r")) == NULL) {
+    fprintf(stderr, "Can't open %s\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+  yyin = file;
+
+  // Extract the file name and set .asm instead .tex
+  char *file_name = strrchr(argv[1], '/') + 1;
+  char *extension = strrchr(file_name, '.');
+  strncpy(extension, ".asm", strlen(".asm") + 1);
+
+  open_file(file_name);
 
   yyparse();
 
@@ -822,8 +841,8 @@ int main(void) {
   return EXIT_SUCCESS;
 }
 
-int open_file() {
-  fd = open(FILE_PATH, O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
+int open_file(char *file_path) {
+  fd = open(file_path, O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
 		perror("open ");
 		return -1;
