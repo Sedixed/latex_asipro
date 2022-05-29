@@ -3,9 +3,6 @@
 	const ax,main
 	jmp ax
 
-:n
-@string "\n"
-
 :div_err_str
 @string "Erreur : Division par 0 impossible\n"
 
@@ -14,8 +11,8 @@
 	callprintfs ax
 	end
 
-:puissance
-; Get the b variable and push it in the top of the stack
+:non_tail_recursive
+; Get the n variable and push it in the top of the stack
 	const ax,2
 	const bx,1
 	mul ax,bx
@@ -63,7 +60,14 @@
 ; False case of the "if" condition (ID: 1)
 :end_if_1
 ; End of the loop/condition (ID: 1)
-; Get the a variable and push it in the top of the stack
+; Reading the number 0
+	const ax,0
+; Push a temp variable on the stack
+	push ax
+; Add the k variable in the stack
+	pop ax
+	push ax
+; Get the n variable and push it in the top of the stack
 	const ax,2
 	const bx,2
 	mul ax,bx
@@ -71,17 +75,56 @@
 	sub bx,ax
 	loadw ax,bx
 	push ax
-; Get the a variable and push it in the top of the stack
+; Add the p variable in the stack
+	pop ax
+	push ax
+; Beginning of the "do while" loop (ID: 2)
+:while_2
+; Get the k variable and push it in the top of the stack
 	const ax,2
-	const bx,3
+	const bx,1
 	mul ax,bx
 	cp bx,sp
 	sub bx,ax
 	loadw ax,bx
 	push ax
-; Get the b variable and push it in the top of the stack
+; Reading the number 2
 	const ax,2
-	const bx,3
+; Push a temp variable on the stack
+	push ax
+; Comparison of type "lower than" (ID: 3)
+	pop ax
+	pop bx
+	const cx,lower_than_3
+	sless bx,ax
+	jmpc cx
+; False case (ID: 3)
+	const ax,0
+	push ax
+	const ax,end_lower_than_3
+	jmp ax
+; True case (ID: 3)
+:lower_than_3
+	const ax,1
+	push ax
+; End of comparison of type "lower than" (ID: 3)
+:end_lower_than_3
+	pop ax
+	const bx,0
+	const cx,end_while_2
+	cmp ax,bx
+	jmpc cx
+; Get the p variable and push it in the top of the stack
+	const ax,2
+	const bx,0
+	mul ax,bx
+	cp bx,sp
+	sub bx,ax
+	loadw ax,bx
+	push ax
+; Get the n variable and push it in the top of the stack
+	const ax,2
+	const bx,4
 	mul ax,bx
 	cp bx,sp
 	sub bx,ax
@@ -97,22 +140,69 @@
 	sub bx,ax
 ; Push a temp variable on the stack
 	push bx
-; Call the puissance function
-	const bx,puissance
+; Call the test function
+	const bx,non_tail_recursive
 	call bx
 ; Pop the called function args
-	pop dx
 	pop dx
 ; Push the returned value on the stack
 ; Push a temp variable on the stack
 	push ax
-; Multiplying two expressions
+; Adding two expressions
 	pop ax
 	pop bx
-	mul ax,bx
+	add ax,bx
 ; Push a temp variable on the stack
 	push ax
+; Update the p variable in the stack
+	const ax,2
+	const bx,1
+	mul ax,bx
+	cp bx,sp
+	sub bx,ax
 	pop ax
+	storew ax,bx
+; Get the k variable and push it in the top of the stack
+	const ax,2
+	const bx,1
+	mul ax,bx
+	cp bx,sp
+	sub bx,ax
+	loadw ax,bx
+	push ax
+; Reading the number 1
+	const ax,1
+; Push a temp variable on the stack
+	push ax
+; Adding two expressions
+	pop ax
+	pop bx
+	add ax,bx
+; Push a temp variable on the stack
+	push ax
+; Update the k variable in the stack
+	const ax,2
+	const bx,2
+	mul ax,bx
+	cp bx,sp
+	sub bx,ax
+	pop ax
+	storew ax,bx
+	const ax,while_2
+	jmp ax
+:end_while_2
+; End of the loop/condition (ID: 2)
+; Get the p variable and push it in the top of the stack
+	const ax,2
+	const bx,0
+	mul ax,bx
+	cp bx,sp
+	sub bx,ax
+	loadw ax,bx
+	push ax
+	pop ax
+	pop dx
+	pop dx
 	ret
 
 :main
@@ -121,11 +211,9 @@
 	const sp,stack
 	const ax,2
 	sub sp,ax
-	const ax,3
+	const ax,2
 	push ax
-	const ax,8
-	push ax
-	const ax,puissance
+	const ax,non_tail_recursive
 	call ax
 	push ax
 	cp ax,sp

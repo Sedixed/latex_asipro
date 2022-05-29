@@ -1,0 +1,12 @@
+\begin{algo}{non_tail_recursive}{n}
+    \IF{n = 0}
+        \RETURN{1}
+    \FI
+    \SET{k}{0}
+    \SET{p}{n}
+    \DOWHILE{k < 5}
+        \SET{p}{p + \CALL{non_tail_recursive}{n - 1}}
+        \SET{k}{k + 1}
+    \OD
+    \RETURN{p}
+\end{algo}
